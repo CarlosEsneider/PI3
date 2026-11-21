@@ -8,7 +8,9 @@ CREATE TABLE usuario (
     nombre_usuario  VARCHAR(100) NOT NULL,
     username        VARCHAR(50)  NOT NULL UNIQUE,
     contrasena      VARCHAR(255) NOT NULL,
+    email           VARCHAR(150) DEFAULT '',
     id_rol          INT          NOT NULL,
+    puede_autorizar BOOLEAN      DEFAULT 0,
     activo          BOOLEAN      DEFAULT 1,
     CONSTRAINT fk_usuario_rol FOREIGN KEY (id_rol)
         REFERENCES rol(id_rol) ON DELETE RESTRICT ON UPDATE CASCADE
@@ -29,13 +31,17 @@ CREATE TABLE proveedor (
 
 CREATE TABLE producto (
     id_producto      INTEGER PRIMARY KEY AUTOINCREMENT,
+    codigo_sku       VARCHAR(50)    DEFAULT '',
     nombre_producto  VARCHAR(150)   NOT NULL,
+    dimensiones      VARCHAR(150)   DEFAULT '',
+    costo_estandar   DECIMAL(10,2)  DEFAULT 0,
     precio           DECIMAL(10,2)  NOT NULL CHECK (precio >= 0),
     stock_actual     INT            NOT NULL DEFAULT 0 CHECK (stock_actual >= 0),
     stock_minimo     INT            NOT NULL DEFAULT 5 CHECK (stock_minimo >= 0),
     id_categoria     INT            NOT NULL,
     id_proveedor     INT            NOT NULL,
     img_url          VARCHAR(255)   DEFAULT NULL,
+    activo           BOOLEAN        DEFAULT 1,
     CONSTRAINT fk_producto_categoria FOREIGN KEY (id_categoria)
         REFERENCES categoria(id_categoria) ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT fk_producto_proveedor FOREIGN KEY (id_proveedor)
@@ -118,9 +124,11 @@ CREATE INDEX idx_detalle_compra_compra   ON detalle_compra(id_compra);
 CREATE INDEX idx_detalle_compra_producto ON detalle_compra(id_producto);
 
 INSERT INTO rol (nombre_rol) VALUES
-('Administrador'),
-('Vendedor'),
-('Consultor');
+('Administrador / Gerente General'),
+('Jefe de Producción y Calidad'),
+('Encargado de Almacén y Bodega'),
+('Asesor Comercial / Ventas'),
+('Auditor / Consultor Externo');
 
 INSERT INTO usuario (nombre_usuario, username, contrasena, id_rol, activo) VALUES
 ('Carlos Espitia',   'admin',      '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', 1, 1),
@@ -238,3 +246,96 @@ INSERT INTO detalle_compra (id_compra, id_producto, cantidad, precio_unitario) V
 (3,  5,   10,  45000.00),
 (4,  3,   10, 220000.00),
 (5,  9,   80,  12000.00);
+
+-- ============================================================
+-- FASE II: SUBSISTEMA DE MOVIMIENTOS, KARDEX Y AUTORIZACIONES
+-- ============================================================
+
+CREATE TABLE tipo_movimiento (
+    id_tipo_movimiento        INTEGER PRIMARY KEY AUTOINCREMENT,
+    codigo_movimiento         VARCHAR(20)  NOT NULL UNIQUE,
+    descripcion               VARCHAR(150) NOT NULL,
+    naturaleza_afectacion     VARCHAR(20)  NOT NULL,
+    rol_autorizador_requerido VARCHAR(50)  NOT NULL
+);
+
+INSERT INTO tipo_movimiento (id_tipo_movimiento, codigo_movimiento, descripcion, naturaleza_afectacion, rol_autorizador_requerido) VALUES
+(1, 'ENT_PROD', 'Entrada por Lote de Producción', 'ENTRADA', 'Jefe de Producción'),
+(2, 'SAL_VENT', 'Salida por Despacho de Venta', 'SALIDA', 'Asesor Comercial'),
+(3, 'DEV_CLIE', 'Devolución de Cliente con Dictamen', 'ENTRADA', 'Jefe de Producción'),
+(4, 'AJU_FISI', 'Ajuste por Inventario Físico', 'AJUSTE', 'Administrador'),
+(5, 'BAJ_MERM', 'Baja por Merma Técnica / Avería', 'SALIDA', 'Administrador');
+
+CREATE TABLE movimiento_inventario (
+    id_movimiento            INTEGER PRIMARY KEY AUTOINCREMENT,
+    numero_documento_soporte VARCHAR(50) NOT NULL UNIQUE,
+    fecha_hora               DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    id_tipo_movimiento       INT         NOT NULL,
+    id_usuario_creador       INT         NOT NULL,
+    id_usuario_autorizador   INT         DEFAULT NULL,
+    estado_autorizacion      VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE',
+    fecha_autorizacion       DATETIME    DEFAULT NULL,
+    observaciones            TEXT,
+    CONSTRAINT fk_mov_tipo FOREIGN KEY (id_tipo_movimiento)
+        REFERENCES tipo_movimiento(id_tipo_movimiento) ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_mov_creador FOREIGN KEY (id_usuario_creador)
+        REFERENCES usuario(id_usuario) ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_mov_autorizador FOREIGN KEY (id_usuario_autorizador)
+        REFERENCES usuario(id_usuario) ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+CREATE INDEX idx_mov_estado ON movimiento_inventario(estado_autorizacion);
+CREATE INDEX idx_mov_doc    ON movimiento_inventario(numero_documento_soporte);
+
+CREATE TABLE detalle_movimiento (
+    id_detalle_movimiento INTEGER PRIMARY KEY AUTOINCREMENT,
+    id_movimiento         INT            NOT NULL,
+    id_producto           INT            NOT NULL,
+    cantidad              INT            NOT NULL CHECK (cantidad > 0),
+    costo_unitario        DECIMAL(10,2)  NOT NULL DEFAULT 0,
+    saldo_resultante      INT            DEFAULT 0,
+    CONSTRAINT fk_detmov_mov FOREIGN KEY (id_movimiento)
+        REFERENCES movimiento_inventario(id_movimiento) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_detmov_prod FOREIGN KEY (id_producto)
+        REFERENCES producto(id_producto) ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+CREATE INDEX idx_detmov_mov  ON detalle_movimiento(id_movimiento);
+CREATE INDEX idx_detmov_prod ON detalle_movimiento(id_producto);
+
+CREATE TABLE kardex (
+    id_kardex          INTEGER PRIMARY KEY AUTOINCREMENT,
+    id_producto        INT            NOT NULL,
+    fecha_hora         DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    id_movimiento      INT            NOT NULL,
+    tipo_evento        VARCHAR(50)    NOT NULL,
+    numero_soporte     VARCHAR(50)    NOT NULL,
+    cantidad_entrada   INT            NOT NULL DEFAULT 0,
+    cantidad_salida    INT            NOT NULL DEFAULT 0,
+    saldo_stock        INT            NOT NULL,
+    costo_unitario     DECIMAL(10,2)  NOT NULL DEFAULT 0,
+    costo_total_saldo  DECIMAL(12,2)  NOT NULL DEFAULT 0,
+    CONSTRAINT fk_kardex_prod FOREIGN KEY (id_producto)
+        REFERENCES producto(id_producto) ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_kardex_mov FOREIGN KEY (id_movimiento)
+        REFERENCES movimiento_inventario(id_movimiento) ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+CREATE INDEX idx_kardex_prod ON kardex(id_producto);
+CREATE INDEX idx_kardex_fecha ON kardex(fecha_hora);
+
+CREATE TABLE auditoria (
+    id_auditoria          INTEGER PRIMARY KEY AUTOINCREMENT,
+    fecha_hora            DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    id_usuario            INT          NOT NULL,
+    accion                VARCHAR(50)  NOT NULL,
+    tabla_afectada        VARCHAR(50)  NOT NULL,
+    id_registro_afectado  INT          NOT NULL,
+    detalle               TEXT,
+    CONSTRAINT fk_auditoria_usuario FOREIGN KEY (id_usuario)
+        REFERENCES usuario(id_usuario) ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+CREATE INDEX idx_auditoria_usuario ON auditoria(id_usuario);
+CREATE INDEX idx_auditoria_fecha   ON auditoria(fecha_hora);
+
