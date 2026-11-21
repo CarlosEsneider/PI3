@@ -1,0 +1,29 @@
+# Gitignore para Proyecto Integrador UNIAJC (Java / SQLite)
+
+# Binarios y carpetas de compilacion
+bin/
+APP/bin/
+build/
+APP/build/
+dist/
+APP/dist/
+dist_standalone/
+APP/dist_standalone/
+*.class
+
+# Archivos de empaquetado temporal
+APP/sfx_config.txt
+
+# Configuraciones de IDEs
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+*.code-workspace
+
+# Archivos temporales y backups de Draw.io
+*.bkp
+*.tmp
+~$*
