@@ -1,7 +1,7 @@
 package com.sigeiv.vista;
 
+import com.sigeiv.controlador.ClienteController;
 import com.sigeiv.controlador.UsuarioController;
-import com.sigeiv.dao.ClienteDAO;
 import com.sigeiv.modelo.Cliente;
 
 import javax.swing.*;
@@ -13,11 +13,12 @@ import java.util.List;
 
 /**
  * Panel de gestion de Clientes con CRUD completo.
+ * Consume ClienteController bajo arquitectura estricta MVC.
  */
 public class ClientePanel extends JPanel {
 
     private final UsuarioController usuarioCtrl;
-    private final ClienteDAO clienteDAO = new ClienteDAO();
+    private final ClienteController clienteCtrl = new ClienteController();
 
     private JTable tabla;
     private DefaultTableModel modeloTabla;
@@ -128,7 +129,7 @@ public class ClientePanel extends JPanel {
 
     private void cargarTabla() {
         modeloTabla.setRowCount(0);
-        for (Cliente c : clienteDAO.listarTodos()) {
+        for (Cliente c : clienteCtrl.listarTodos()) {
             modeloTabla.addRow(new Object[]{ c.getIdCliente(), c.getNombreCliente(), c.getDni(), c.getTelefono() });
         }
     }
@@ -136,7 +137,7 @@ public class ClientePanel extends JPanel {
     private void filtrar() {
         String busqueda = txtBuscar.getText().trim();
         modeloTabla.setRowCount(0);
-        List<Cliente> lista = busqueda.isEmpty() ? clienteDAO.listarTodos() : clienteDAO.buscarPorNombre(busqueda);
+        List<Cliente> lista = busqueda.isEmpty() ? clienteCtrl.listarTodos() : clienteCtrl.buscarPorNombre(busqueda);
         for (Cliente c : lista) {
             modeloTabla.addRow(new Object[]{ c.getIdCliente(), c.getNombreCliente(), c.getDni(), c.getTelefono() });
         }
@@ -146,7 +147,7 @@ public class ClientePanel extends JPanel {
         int fila = tabla.getSelectedRow();
         if (fila < 0) return;
         idSeleccionado = (int) modeloTabla.getValueAt(fila, 0);
-        Cliente c = clienteDAO.buscarPorId(idSeleccionado);
+        Cliente c = clienteCtrl.buscarPorId(idSeleccionado);
         if (c != null) {
             txtNombre.setText(c.getNombreCliente());
             txtDni.setText(c.getDni());
@@ -162,9 +163,9 @@ public class ClientePanel extends JPanel {
         }
         Cliente c = new Cliente(idSeleccionado > 0 ? idSeleccionado : 0, nombre,
             txtDni.getText().trim(), txtTelefono.getText().trim());
-        boolean ok = idSeleccionado > 0 ? clienteDAO.actualizar(c) : clienteDAO.insertar(c);
+        boolean ok = idSeleccionado > 0 ? clienteCtrl.actualizar(c) : clienteCtrl.guardar(c);
         if (ok) {
-            JOptionPane.showMessageDialog(this, "Cliente guardado.", "Exito", JOptionPane.INFORMATION_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Cliente guardado exitosamente.", "Exito", JOptionPane.INFORMATION_MESSAGE);
             limpiar(); cargarTabla();
         } else {
             JOptionPane.showMessageDialog(this, "Error al guardar. Posible DNI duplicado.", "Error", JOptionPane.ERROR_MESSAGE);
@@ -174,7 +175,7 @@ public class ClientePanel extends JPanel {
     private void eliminar() {
         if (idSeleccionado <= 0) { JOptionPane.showMessageDialog(this, "Selecciona un cliente."); return; }
         if (JOptionPane.showConfirmDialog(this, "Eliminar este cliente?", "Confirmar", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
-            if (clienteDAO.eliminar(idSeleccionado)) { limpiar(); cargarTabla(); }
+            if (clienteCtrl.eliminar(idSeleccionado)) { limpiar(); cargarTabla(); }
             else JOptionPane.showMessageDialog(this, "No se pudo eliminar. Puede tener ventas asociadas.", "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
@@ -202,9 +203,3 @@ public class ClientePanel extends JPanel {
         return p;
     }
 }
-
-
-
-
-
-

@@ -1,9 +1,9 @@
 package com.sigeiv.vista;
 
 import com.sigeiv.controlador.UsuarioController;
-import com.sigeiv.dao.ProductoDAO;
-import com.sigeiv.dao.CategoriaDAO;
-import com.sigeiv.dao.ProveedorDAO;
+import com.sigeiv.controlador.InventarioController;
+import com.sigeiv.controlador.CategoriaController;
+import com.sigeiv.controlador.ProveedorController;
 import com.sigeiv.modelo.Producto;
 import com.sigeiv.modelo.Categoria;
 import com.sigeiv.modelo.Proveedor;
@@ -17,13 +17,14 @@ import java.util.List;
 /**
  * Panel de Inventario.
  * Muestra el estado del stock, alertas de stock bajo y permite filtrar.
+ * Consume InventarioController bajo patron MVC.
  */
 public class InventarioPanel extends JPanel {
 
     private final UsuarioController usuarioCtrl;
-    private final ProductoDAO productoDAO = new ProductoDAO();
-    private final CategoriaDAO categoriaDAO = new CategoriaDAO();
-    private final ProveedorDAO proveedorDAO = new ProveedorDAO();
+    private final InventarioController inventarioCtrl = new InventarioController();
+    private final CategoriaController categoriaCtrl = new CategoriaController();
+    private final ProveedorController proveedorCtrl = new ProveedorController();
 
     private JTable tabla;
     private DefaultTableModel modeloTabla;
@@ -120,20 +121,9 @@ public class InventarioPanel extends JPanel {
 
     private void cargarDatos() {
         modeloTabla.setRowCount(0);
-        List<Producto> productos;
-
-        if (chkSoloStockBajo.isSelected()) {
-            productos = productoDAO.productosStockBajo();
-        } else {
-            productos = productoDAO.listarTodos();
-        }
-
-        List<Categoria> categorias = categoriaDAO.listarTodos();
-        List<Proveedor> proveedores = proveedorDAO.listarTodos();
-
-        int totalProductos = productos.size();
-        int stockBajoCount = 0;
-        double valorTotal = 0;
+        List<Producto> productos = inventarioCtrl.listarInventario(chkSoloStockBajo.isSelected());
+        List<Categoria> categorias = categoriaCtrl.listarTodos();
+        List<Proveedor> proveedores = proveedorCtrl.listarTodos();
 
         for (Producto p : productos) {
             String catNombre = categorias.stream()
@@ -144,9 +134,6 @@ public class InventarioPanel extends JPanel {
                 .map(Proveedor::getEmpresa).findFirst().orElse("-");
 
             boolean bajo = p.isStockBajo();
-            if (bajo) stockBajoCount++;
-            valorTotal += p.getPrecio() * p.getStockActual();
-
             modeloTabla.addRow(new Object[]{
                 p.getIdProducto(), p.getNombreProducto(), catNombre, provNombre,
                 String.format("$%,.2f", p.getPrecio()),
@@ -155,21 +142,10 @@ public class InventarioPanel extends JPanel {
             });
         }
 
-        // Actualizar tarjetas (para el total real, leer todos si filtramos)
-        if (chkSoloStockBajo.isSelected()) {
-            List<Producto> todos = productoDAO.listarTodos();
-            totalProductos = todos.size();
-            valorTotal = 0;
-            stockBajoCount = 0;
-            for (Producto p : todos) {
-                valorTotal += p.getPrecio() * p.getStockActual();
-                if (p.isStockBajo()) stockBajoCount++;
-            }
-        }
-
-        lblTotalProductos.setText(String.valueOf(totalProductos));
-        lblStockBajo.setText(String.valueOf(stockBajoCount));
-        lblValorInventario.setText("$" + String.format("%,.0f", valorTotal));
+        // Actualizar tarjetas resumen mediante metodos de negocio del controlador
+        lblTotalProductos.setText(String.valueOf(inventarioCtrl.obtenerTotalProductos()));
+        lblStockBajo.setText(String.valueOf(inventarioCtrl.obtenerTotalStockBajo()));
+        lblValorInventario.setText("$" + String.format("%,.0f", inventarioCtrl.calcularValorTotalInventario()));
     }
 
     private JLabel crearTarjeta(JPanel contenedor, String titulo, String valor, Color color) {
