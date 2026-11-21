@@ -160,15 +160,29 @@ public class ProductoDAO {
     }
 
     private Producto mapear(ResultSet rs) throws SQLException {
+        String codigoSku = "";
+        String dimensiones = "";
+        double costoEstandar = 0.0;
+        boolean activo = true;
+
+        try { codigoSku = rs.getString("codigo_sku"); if (codigoSku == null) codigoSku = ""; } catch (SQLException ignored) {}
+        try { dimensiones = rs.getString("dimensiones"); if (dimensiones == null) dimensiones = ""; } catch (SQLException ignored) {}
+        try { costoEstandar = rs.getDouble("costo_estandar"); } catch (SQLException ignored) {}
+        try { activo = rs.getBoolean("activo"); } catch (SQLException ignored) {}
+
         return new Producto(
             rs.getInt("id_producto"),
+            codigoSku,
             rs.getString("nombre_producto"),
+            dimensiones,
+            costoEstandar,
             rs.getDouble("precio"),
             rs.getInt("stock_actual"),
             rs.getInt("stock_minimo"),
             rs.getInt("id_categoria"),
             rs.getInt("id_proveedor"),
-            rs.getString("img_url")
+            rs.getString("img_url"),
+            activo
         );
     }
 }

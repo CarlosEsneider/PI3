@@ -161,6 +161,7 @@ public class MainFrame extends JFrame {
         panelContenido.add(new VentaPanel(usuarioCtrl), "ventas");
         panelContenido.add(new CompraPanel(usuarioCtrl), "compras");
         panelContenido.add(new InventarioPanel(usuarioCtrl), "inventario");
+        panelContenido.add(new AutorizacionesPanel(usuarioCtrl), "autorizaciones");
         panelContenido.add(new ReportePanel(usuarioCtrl), "reportes");
 
         // Botones del sidebar
@@ -172,6 +173,7 @@ public class MainFrame extends JFrame {
         JButton btnVentas = crearBotonSidebar("Ventas", "ventas");
         JButton btnCompras = crearBotonSidebar("Compras", "compras");
         JButton btnInventario = crearBotonSidebar("Inventario", "inventario");
+        JButton btnAutorizaciones = crearBotonSidebar("Autorizaciones", "autorizaciones");
         JButton btnReportes = crearBotonSidebar("Reportes", "reportes");
 
         // Control de visibilidad segun la Matriz de Control de Acceso (Fase 2 - Tabla 2 del README)
@@ -207,6 +209,10 @@ public class MainFrame extends JFrame {
         // Inventario: Admin, Jefe Produccion, Almacen, Auditor (todos excepto Asesor Comercial)
         btnInventario.setVisible(!esAsesor);
 
+        // Bandeja de Autorizaciones (Fase 3): acceso para todos los roles facultados
+        // (Admin, Jefe Produccion, Asesor Comercial para autorizar; Almacen y Auditor para seguimiento y control)
+        btnAutorizaciones.setVisible(true);
+
         // Reportes: Admin, Jefe Produccion, Almacen, Auditor (todos excepto Asesor Comercial)
         btnReportes.setVisible(!esAsesor);
 
@@ -221,6 +227,7 @@ public class MainFrame extends JFrame {
         sidebar.add(btnVentas);
         sidebar.add(btnCompras);
         sidebar.add(btnInventario);
+        sidebar.add(btnAutorizaciones);
         sidebar.add(btnReportes);
 
         sidebar.add(Box.createVerticalGlue());
