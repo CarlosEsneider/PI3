@@ -11,17 +11,34 @@ import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.util.List;
 
+/**
+ * Panel de gestion de usuarios del sistema SIGEIV-Volcano.
+ *
+ * Fase 2 - RF-02:
+ * - Catálogo oficial de 5 roles jerarquicos.
+ * - Campos email y puedeAutorizar en el formulario.
+ * - Borrado logico (marca activo=false en lugar de DELETE fisico).
+ */
 public class UsuarioPanel extends JPanel {
+
+    // Catalogo oficial de roles (Fase 2 - RF-02)
+    private static final String[] ROLES = {
+        "1 - Administrador / Gerente General",
+        "2 - Jefe de Produccion y Calidad",
+        "3 - Encargado de Almacen y Bodega",
+        "4 - Asesor Comercial / Ventas",
+        "5 - Auditor / Consultor Externo"
+    };
 
     private final UsuarioController usuarioCtrl;
 
     private JTable tablaUsuarios;
     private DefaultTableModel modeloTabla;
 
-    private JTextField txtNombre, txtUsername;
+    private JTextField txtNombre, txtUsername, txtEmail;
     private JPasswordField txtPassword;
     private JComboBox<String> cmbRol;
-    private JCheckBox chkActivo;
+    private JCheckBox chkActivo, chkPuedeAutorizar;
     private JButton btnGuardar, btnEliminar, btnLimpiar;
 
     private int idSeleccionado = -1;
@@ -47,7 +64,7 @@ public class UsuarioPanel extends JPanel {
         panelForm.setBackground(MainFrame.COLOR_PANEL);
         panelForm.setBorder(BorderFactory.createCompoundBorder(
             new LineBorder(MainFrame.COLOR_BORDE, 1, true), new EmptyBorder(16, 16, 16, 16)));
-        panelForm.setPreferredSize(new Dimension(320, 0));
+        panelForm.setPreferredSize(new Dimension(340, 0));
 
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.gridx = 0; gbc.gridy = 0; gbc.anchor = GridBagConstraints.WEST;
@@ -58,6 +75,7 @@ public class UsuarioPanel extends JPanel {
         lblTitulo.setForeground(MainFrame.COLOR_PRIMARIO);
         panelForm.add(lblTitulo, gbc);
 
+        // Nombre Completo
         gbc.gridy++;
         panelForm.add(crearEtiqueta("Nombre Completo"), gbc);
         gbc.gridy++;
@@ -65,6 +83,7 @@ public class UsuarioPanel extends JPanel {
         ProductoPanel.estilizarCampo(txtNombre);
         panelForm.add(txtNombre, gbc);
 
+        // Username
         gbc.gridy++;
         panelForm.add(crearEtiqueta("Nombre de Usuario (Login)"), gbc);
         gbc.gridy++;
@@ -72,6 +91,15 @@ public class UsuarioPanel extends JPanel {
         ProductoPanel.estilizarCampo(txtUsername);
         panelForm.add(txtUsername, gbc);
 
+        // Email (nuevo - Fase 2)
+        gbc.gridy++;
+        panelForm.add(crearEtiqueta("Correo Electronico"), gbc);
+        gbc.gridy++;
+        txtEmail = new JTextField();
+        ProductoPanel.estilizarCampo(txtEmail);
+        panelForm.add(txtEmail, gbc);
+
+        // Contrasena
         gbc.gridy++;
         panelForm.add(crearEtiqueta("Contrasena (dejar vacio para no cambiar)"), gbc);
         gbc.gridy++;
@@ -79,19 +107,30 @@ public class UsuarioPanel extends JPanel {
         ProductoPanel.estilizarCampo(txtPassword);
         panelForm.add(txtPassword, gbc);
 
+        // Rol — 5 roles jerarquicos (Fase 2)
         gbc.gridy++;
         panelForm.add(crearEtiqueta("Rol del Usuario"), gbc);
         gbc.gridy++;
-        cmbRol = new JComboBox<>(new String[]{"1 - Administrador", "2 - Vendedor", "3 - Consultor"});
+        cmbRol = new JComboBox<>(ROLES);
         ProductoPanel.estilizarCombo(cmbRol);
         panelForm.add(cmbRol, gbc);
 
+        // Checkboxes
         gbc.gridy++;
         chkActivo = new JCheckBox("Usuario Activo");
         chkActivo.setBackground(MainFrame.COLOR_PANEL);
         chkActivo.setForeground(MainFrame.COLOR_TEXTO);
         chkActivo.setSelected(true);
         panelForm.add(chkActivo, gbc);
+
+        // Puede Autorizar (nuevo - Fase 2)
+        gbc.gridy++;
+        chkPuedeAutorizar = new JCheckBox("Puede Autorizar Documentos Soporte");
+        chkPuedeAutorizar.setBackground(MainFrame.COLOR_PANEL);
+        chkPuedeAutorizar.setForeground(MainFrame.COLOR_TEXTO);
+        chkPuedeAutorizar.setSelected(false);
+        chkPuedeAutorizar.setToolTipText("Habilita la firma digital de autorizaciones segun el rol asignado");
+        panelForm.add(chkPuedeAutorizar, gbc);
 
         // Botones
         gbc.gridy++;
@@ -107,9 +146,10 @@ public class UsuarioPanel extends JPanel {
         panelForm.add(btnLimpiar, gbc);
 
         gbc.gridy++;
-        btnEliminar = ProductoPanel.crearBoton("Eliminar Usuario", MainFrame.COLOR_ERROR);
+        btnEliminar = ProductoPanel.crearBoton("Desactivar Usuario", MainFrame.COLOR_ERROR);
         btnEliminar.addActionListener(e -> eliminarUsuario());
         btnEliminar.setEnabled(false);
+        btnEliminar.setToolTipText("Realiza borrado logico (activo = false). No elimina el registro.");
         panelForm.add(btnEliminar, gbc);
 
         // Spacer
@@ -122,7 +162,7 @@ public class UsuarioPanel extends JPanel {
         JPanel panelTabla = new JPanel(new BorderLayout(0, 12));
         panelTabla.setOpaque(false);
 
-        String[] columnas = {"ID", "Nombre", "Username", "Rol", "Estado"};
+        String[] columnas = {"ID", "Nombre", "Username", "Email", "Rol", "Autoriza", "Estado"};
         modeloTabla = new DefaultTableModel(columnas, 0) {
             @Override public boolean isCellEditable(int row, int column) { return false; }
         };
@@ -150,27 +190,47 @@ public class UsuarioPanel extends JPanel {
         return lbl;
     }
 
+    /** Devuelve el nombre del rol segun los 5 roles oficiales (Fase 2). */
+    private String nombreRol(int idRol) {
+        switch (idRol) {
+            case 1: return "Admin/Gerente";
+            case 2: return "Jefe Produccion";
+            case 3: return "Almacen";
+            case 4: return "Asesor Comercial";
+            case 5: return "Auditor";
+            default: return "Desconocido";
+        }
+    }
+
     private void cargarDatos() {
         modeloTabla.setRowCount(0);
         List<Usuario> usuarios = usuarioCtrl.listarTodos();
         for (Usuario u : usuarios) {
-            String nombreRol = u.getIdRol() == 1 ? "Admin" : (u.getIdRol() == 2 ? "Vendedor" : "Consultor");
-            String estado = u.isActivo() ? "Activo" : "Inactivo";
-            modeloTabla.addRow(new Object[]{u.getIdUsuario(), u.getNombreUsuario(), u.getUsername(), nombreRol, estado});
+            modeloTabla.addRow(new Object[]{
+                u.getIdUsuario(),
+                u.getNombreUsuario(),
+                u.getUsername(),
+                u.getEmail(),
+                nombreRol(u.getIdRol()),
+                u.isPuedeAutorizar() ? "Si" : "No",
+                u.isActivo() ? "Activo" : "Inactivo"
+            });
         }
     }
 
     private void seleccionarUsuario() {
         int fila = tablaUsuarios.getSelectedRow();
         idSeleccionado = (int) modeloTabla.getValueAt(fila, 0);
-        
         Usuario u = usuarioCtrl.buscarPorId(idSeleccionado);
         if (u != null) {
             txtNombre.setText(u.getNombreUsuario());
             txtUsername.setText(u.getUsername());
+            txtEmail.setText(u.getEmail() != null ? u.getEmail() : "");
             txtPassword.setText(""); // No se muestra el hash
-            cmbRol.setSelectedIndex(u.getIdRol() - 1);
+            int idx = u.getIdRol() - 1;
+            cmbRol.setSelectedIndex(idx >= 0 && idx < ROLES.length ? idx : 0);
             chkActivo.setSelected(u.isActivo());
+            chkPuedeAutorizar.setSelected(u.isPuedeAutorizar());
             btnEliminar.setEnabled(true);
         }
     }
@@ -183,6 +243,8 @@ public class UsuarioPanel extends JPanel {
 
         int idRol = cmbRol.getSelectedIndex() + 1;
         boolean activo = chkActivo.isSelected();
+        boolean puedeAutorizar = chkPuedeAutorizar.isSelected();
+        String email = txtEmail.getText().trim();
 
         if (idSeleccionado == -1) {
             // Nuevo usuario
@@ -190,20 +252,22 @@ public class UsuarioPanel extends JPanel {
                 JOptionPane.showMessageDialog(this, "Debe ingresar una contrasena para el nuevo usuario.", "Aviso", JOptionPane.WARNING_MESSAGE);
                 return;
             }
-            if (usuarioCtrl.registrar(txtNombre.getText().trim(), txtUsername.getText().trim(), new String(txtPassword.getPassword()), idRol)) {
+            if (usuarioCtrl.registrar(txtNombre.getText().trim(), txtUsername.getText().trim(), new String(txtPassword.getPassword()), email, idRol, puedeAutorizar)) {
                 JOptionPane.showMessageDialog(this, "Usuario creado exitosamente.");
             } else {
-                JOptionPane.showMessageDialog(this, "Error al crear usuario (quizas el username ya existe).", "Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Error al crear usuario (el username ya puede existir).", "Error", JOptionPane.ERROR_MESSAGE);
             }
         } else {
-            // Editar usuario
+            // Editar usuario existente
             Usuario u = usuarioCtrl.buscarPorId(idSeleccionado);
             if (u != null) {
                 u.setNombreUsuario(txtNombre.getText().trim());
                 u.setUsername(txtUsername.getText().trim());
+                u.setEmail(email);
                 u.setIdRol(idRol);
                 u.setActivo(activo);
-                
+                u.setPuedeAutorizar(puedeAutorizar);
+
                 if (txtPassword.getPassword().length > 0) {
                     u.setContrasena(HashUtil.sha256(new String(txtPassword.getPassword())));
                 }
@@ -220,20 +284,28 @@ public class UsuarioPanel extends JPanel {
         cargarDatos();
     }
 
+    /**
+     * Borrado logico: marca el usuario como inactivo (activo = false).
+     * No se realiza DELETE fisico para preservar integridad referencial.
+     */
     private void eliminarUsuario() {
         if (idSeleccionado == usuarioCtrl.getUsuarioLogueado().getIdUsuario()) {
-            JOptionPane.showMessageDialog(this, "No puedes eliminar tu propio usuario activo.", "Accion Denegada", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "No puedes desactivar tu propio usuario activo.", "Accion Denegada", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        int opc = JOptionPane.showConfirmDialog(this, "Seguro que deseas eliminar este usuario?\nSe recomienda mejor marcarlo como Inactivo.", "Confirmar", JOptionPane.YES_NO_OPTION);
+        int opc = JOptionPane.showConfirmDialog(this,
+            "Se marcara el usuario como INACTIVO (borrado logico).\n" +
+            "El registro se conserva para la integridad del historial.\n\n" +
+            "Deseas continuar?",
+            "Confirmar Desactivacion", JOptionPane.YES_NO_OPTION);
         if (opc == JOptionPane.YES_OPTION) {
             if (usuarioCtrl.eliminar(idSeleccionado)) {
                 limpiarFormulario();
                 cargarDatos();
-                JOptionPane.showMessageDialog(this, "Usuario eliminado.");
+                JOptionPane.showMessageDialog(this, "Usuario desactivado correctamente.");
             } else {
-                JOptionPane.showMessageDialog(this, "Error al eliminar usuario. Puede tener ventas asociadas.", "Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Error al desactivar usuario.", "Error", JOptionPane.ERROR_MESSAGE);
             }
         }
     }
@@ -242,16 +314,14 @@ public class UsuarioPanel extends JPanel {
         idSeleccionado = -1;
         txtNombre.setText("");
         txtUsername.setText("");
+        txtEmail.setText("");
         txtPassword.setText("");
         cmbRol.setSelectedIndex(0);
         chkActivo.setSelected(true);
+        chkPuedeAutorizar.setSelected(false);
         btnEliminar.setEnabled(false);
         tablaUsuarios.clearSelection();
     }
 }
-
-
-
-
 
 

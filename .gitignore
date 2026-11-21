@@ -1,6 +1,5 @@
-# Gitignore para Proyecto Integrador UNIAJC (Java / SQLite)
-
-# Binarios y carpetas de compilacion
+# Byte-code and compiled classes
+*.class
 bin/
 APP/bin/
 build/
@@ -9,12 +8,10 @@ dist/
 APP/dist/
 dist_standalone/
 APP/dist_standalone/
-*.class
-
-# Archivos de empaquetado temporal
+sfx_config.txt
 APP/sfx_config.txt
 
-# Configuraciones de IDEs
+# Temp & IDE files
 .idea/
 *.iml
 .vscode/
@@ -27,3 +24,8 @@ APP/sfx_config.txt
 *.bkp
 *.tmp
 ~$*
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store

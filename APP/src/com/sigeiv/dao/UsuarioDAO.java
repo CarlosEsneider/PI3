@@ -14,16 +14,21 @@ public class UsuarioDAO {
 
     private final ConexionDB conexionDB = ConexionDB.getInstancia();
 
-    /** Inserta un nuevo usuario */
+    /**
+     * Inserta un nuevo usuario.
+     * Fase 2 - RF-02: incluye email y puede_autorizar en el INSERT.
+     */
     public boolean insertar(Usuario u) {
-        String sql = "INSERT INTO usuario (nombre_usuario, username, contrasena, id_rol, activo) VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO usuario (nombre_usuario, username, contrasena, email, id_rol, puede_autorizar, activo) VALUES (?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = conexionDB.getConexion();
              PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, u.getNombreUsuario());
             ps.setString(2, u.getUsername());
             ps.setString(3, u.getContrasena());
-            ps.setInt(4, u.getIdRol());
-            ps.setBoolean(5, u.isActivo());
+            ps.setString(4, u.getEmail() != null ? u.getEmail() : "");
+            ps.setInt(5, u.getIdRol());
+            ps.setBoolean(6, u.isPuedeAutorizar());
+            ps.setBoolean(7, u.isActivo());
             int filas = ps.executeUpdate();
             if (filas > 0) {
                 ResultSet rs = ps.getGeneratedKeys();
@@ -34,25 +39,33 @@ public class UsuarioDAO {
         return false;
     }
 
-    /** Actualiza un usuario existente */
+    /**
+     * Actualiza un usuario existente.
+     * Fase 2 - RF-02: incluye email y puede_autorizar en el UPDATE.
+     */
     public boolean actualizar(Usuario u) {
-        String sql = "UPDATE usuario SET nombre_usuario=?, username=?, contrasena=?, id_rol=?, activo=? WHERE id_usuario=?";
+        String sql = "UPDATE usuario SET nombre_usuario=?, username=?, contrasena=?, email=?, id_rol=?, puede_autorizar=?, activo=? WHERE id_usuario=?";
         try (Connection conn = conexionDB.getConexion();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, u.getNombreUsuario());
             ps.setString(2, u.getUsername());
             ps.setString(3, u.getContrasena());
-            ps.setInt(4, u.getIdRol());
-            ps.setBoolean(5, u.isActivo());
-            ps.setInt(6, u.getIdUsuario());
+            ps.setString(4, u.getEmail() != null ? u.getEmail() : "");
+            ps.setInt(5, u.getIdRol());
+            ps.setBoolean(6, u.isPuedeAutorizar());
+            ps.setBoolean(7, u.isActivo());
+            ps.setInt(8, u.getIdUsuario());
             return ps.executeUpdate() > 0;
         } catch (SQLException e) { e.printStackTrace(); }
         return false;
     }
 
-    /** Elimina un usuario por ID */
+    /**
+     * Borrado logico de un usuario (activo = false).
+     * Fase 2 - RF-02: se reemplaza el DELETE fisico por borrado logico.
+     */
     public boolean eliminar(int id) {
-        String sql = "DELETE FROM usuario WHERE id_usuario = ?";
+        String sql = "UPDATE usuario SET activo = 0 WHERE id_usuario = ?";
         try (Connection conn = conexionDB.getConexion();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, id);
@@ -97,14 +110,24 @@ public class UsuarioDAO {
         return lista;
     }
 
-    /** Mapea un ResultSet a un objeto Usuario */
+    /**
+     * Mapea un ResultSet a un objeto Usuario.
+     * Fase 2 - RF-02: lee email y puede_autorizar con fallback seguro.
+     */
     private Usuario mapear(ResultSet rs) throws SQLException {
+        String email = "";
+        boolean puedeAutorizar = false;
+        // Columnas opcionales: pueden no existir en BDs antiguas (SQLite del prototipo)
+        try { email = rs.getString("email"); if (email == null) email = ""; } catch (SQLException ignored) {}
+        try { puedeAutorizar = rs.getBoolean("puede_autorizar"); } catch (SQLException ignored) {}
         return new Usuario(
             rs.getInt("id_usuario"),
             rs.getString("nombre_usuario"),
             rs.getString("username"),
             rs.getString("contrasena"),
+            email,
             rs.getInt("id_rol"),
+            puedeAutorizar,
             rs.getBoolean("activo")
         );
     }

@@ -161,6 +161,7 @@ public class MainFrame extends JFrame {
         panelContenido.add(new VentaPanel(usuarioCtrl), "ventas");
         panelContenido.add(new CompraPanel(usuarioCtrl), "compras");
         panelContenido.add(new InventarioPanel(usuarioCtrl), "inventario");
+        panelContenido.add(new AutorizacionesPanel(usuarioCtrl), "autorizaciones");
         panelContenido.add(new ReportePanel(usuarioCtrl), "reportes");
 
         // Botones del sidebar
@@ -172,19 +173,48 @@ public class MainFrame extends JFrame {
         JButton btnVentas = crearBotonSidebar("Ventas", "ventas");
         JButton btnCompras = crearBotonSidebar("Compras", "compras");
         JButton btnInventario = crearBotonSidebar("Inventario", "inventario");
+        JButton btnAutorizaciones = crearBotonSidebar("Autorizaciones", "autorizaciones");
         JButton btnReportes = crearBotonSidebar("Reportes", "reportes");
 
-        // Control de visibilidad segun ROL
-        boolean esAdmin = usuarioCtrl.esAdmin();
-        boolean esVendedor = usuarioCtrl.esVendedor();
-        
+        // Control de visibilidad segun la Matriz de Control de Acceso (Fase 2 - Tabla 2 del README)
+        // Roles: 1=Admin/Gerente, 2=Jefe Produccion, 3=Almacen, 4=Asesor Comercial, 5=Auditor
+        int idRol = u.getIdRol();
+        boolean esAdmin         = (idRol == 1);
+        boolean esJefeProd      = (idRol == 2);
+        boolean esAlmacen       = (idRol == 3);
+        boolean esAsesor        = (idRol == 4);
+        boolean esAuditor       = (idRol == 5);
+
+        // Productos / Catalogo: todos los roles tienen acceso (nivel varía, pero pueden ver el panel)
+        // btnProductos -> visible para todos
+
+        // Clientes: Admin, Almacen, Asesor Comercial
+        btnClientes.setVisible(esAdmin || esAlmacen || esAsesor);
+
+        // Proveedores: solo Admin
         btnProveedores.setVisible(esAdmin);
-        btnCategorias.setVisible(esAdmin);
+
+        // Categorias / Lineas: Admin y Jefe de Produccion
+        btnCategorias.setVisible(esAdmin || esJefeProd);
+
+        // Usuarios / Roles: solo Admin (CRUD total); el resto no tiene acceso
         btnUsuarios.setVisible(esAdmin);
-        
-        btnClientes.setVisible(esAdmin || esVendedor);
-        btnVentas.setVisible(esAdmin || esVendedor);
+
+        // Ventas / Despachos: Admin, Almacen (despacho fisico), Asesor Comercial (autoriza)
+        btnVentas.setVisible(esAdmin || esAlmacen || esAsesor);
+
+        // Compras: solo Admin (supervision general)
         btnCompras.setVisible(esAdmin);
+
+        // Inventario: Admin, Jefe Produccion, Almacen, Auditor (todos excepto Asesor Comercial)
+        btnInventario.setVisible(!esAsesor);
+
+        // Bandeja de Autorizaciones (Fase 3): acceso para todos los roles facultados
+        // (Admin, Jefe Produccion, Asesor Comercial para autorizar; Almacen y Auditor para seguimiento y control)
+        btnAutorizaciones.setVisible(true);
+
+        // Reportes: Admin, Jefe Produccion, Almacen, Auditor (todos excepto Asesor Comercial)
+        btnReportes.setVisible(!esAsesor);
 
         sidebar.add(btnProductos);
         sidebar.add(btnClientes);
@@ -197,6 +227,7 @@ public class MainFrame extends JFrame {
         sidebar.add(btnVentas);
         sidebar.add(btnCompras);
         sidebar.add(btnInventario);
+        sidebar.add(btnAutorizaciones);
         sidebar.add(btnReportes);
 
         sidebar.add(Box.createVerticalGlue());
@@ -279,10 +310,13 @@ public class MainFrame extends JFrame {
     }
 
     private String obtenerNombreRol(int idRol) {
+        // Fase 2 - RF-02: 5 roles jerarquicos oficiales
         switch (idRol) {
-            case 1: return "Administrador";
-            case 2: return "Vendedor";
-            case 3: return "Consultor";
+            case 1: return "Administrador / Gerente";
+            case 2: return "Jefe de Produccion";
+            case 3: return "Encargado de Almacen";
+            case 4: return "Asesor Comercial";
+            case 5: return "Auditor / Consultor";
             default: return "Desconocido";
         }
     }
