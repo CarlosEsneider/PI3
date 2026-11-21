@@ -26,6 +26,13 @@ public class LoginFrame extends JFrame {
     private JLabel lblError;
     private final UsuarioController usuarioController = new UsuarioController();
 
+    /**
+     * Fase 2 - RF-01: contador de intentos fallidos consecutivos.
+     * Al llegar a MAX_INTENTOS se bloquea el acceso con JOptionPane.
+     */
+    private int intentosFallidos = 0;
+    private static final int MAX_INTENTOS = 3;
+
     // Colores del tema
     private static final Color COLOR_FONDO = new Color(18, 18, 24);
     private static final Color COLOR_PANEL = new Color(28, 28, 38);
@@ -182,6 +189,10 @@ public class LoginFrame extends JFrame {
         campo.setAlignmentX(Component.CENTER_ALIGNMENT);
     }
 
+    /**
+     * Fase 2 - RF-01: inicia sesion con control de intentos fallidos.
+     * Bloquea el acceso tras MAX_INTENTOS consecutivos erroneos.
+     */
     private void iniciarSesion() {
         String username = txtUsername.getText().trim();
         String password = new String(txtPassword.getPassword());
@@ -206,19 +217,41 @@ public class LoginFrame extends JFrame {
                 try {
                     Usuario usuario = get();
                     if (usuario != null) {
+                        intentosFallidos = 0; // Reiniciar contador al entrar correctamente
                         dispose();
                         new MainFrame(usuarioController);
                     } else {
-                        lblError.setText("Usuario o contrasena incorrectos.");
+                        intentosFallidos++;
                         txtPassword.setText("");
                         txtPassword.requestFocus();
+
+                        int restantes = MAX_INTENTOS - intentosFallidos;
+                        if (intentosFallidos >= MAX_INTENTOS) {
+                            // Bloqueo preventivo (RF-01)
+                            btnLogin.setEnabled(false);
+                            btnLogin.setText("Acceso Bloqueado");
+                            lblError.setText("Cuenta bloqueada temporalmente.");
+                            JOptionPane.showMessageDialog(
+                                LoginFrame.this,
+                                "Se han detectado " + MAX_INTENTOS + " intentos fallidos consecutivos.\n" +
+                                "El acceso ha sido bloqueado por seguridad.\n\n" +
+                                "Contacte al administrador del sistema.",
+                                "Acceso Bloqueado - SIGEIV-Volcano",
+                                JOptionPane.ERROR_MESSAGE
+                            );
+                            // El boton permanece deshabilitado; el usuario debe reiniciar la app.
+                        } else {
+                            lblError.setText("Credenciales incorrectas. Intentos restantes: " + restantes + ".");
+                            btnLogin.setEnabled(true);
+                            btnLogin.setText("Iniciar Sesion");
+                        }
                     }
                 } catch (Exception ex) {
                     lblError.setText("Error de conexion a la base de datos.");
                     ex.printStackTrace();
+                    btnLogin.setEnabled(true);
+                    btnLogin.setText("Iniciar Sesion");
                 }
-                btnLogin.setEnabled(true);
-                btnLogin.setText("Iniciar Sesion");
             }
         };
         worker.execute();
