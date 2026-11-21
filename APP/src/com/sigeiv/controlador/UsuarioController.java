@@ -86,6 +86,25 @@ public class UsuarioController {
     public void cerrarSesion() {
         this.usuarioLogueado = null;
     }
+
+    public java.util.List<Usuario> listarTodos() {
+        return usuarioDAO.listarTodos();
+    }
+
+    public Usuario buscarPorId(int id) {
+        if (id <= 0) return null;
+        return usuarioDAO.buscarPorId(id);
+    }
+
+    public boolean actualizar(Usuario u) {
+        if (u == null || u.getIdUsuario() <= 0) return false;
+        return usuarioDAO.actualizar(u);
+    }
+
+    public boolean eliminar(int id) {
+        if (id <= 0) return false;
+        return usuarioDAO.eliminar(id);
+    }
 }
 
 
