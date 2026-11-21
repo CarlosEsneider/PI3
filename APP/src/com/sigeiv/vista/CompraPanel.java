@@ -3,7 +3,9 @@ package com.sigeiv.vista;
 import java.util.List;
 
 import com.sigeiv.controlador.UsuarioController;
-import com.sigeiv.dao.*;
+import com.sigeiv.controlador.ProductoController;
+import com.sigeiv.controlador.ProveedorController;
+import com.sigeiv.controlador.CompraController;
 import com.sigeiv.modelo.*;
 
 import javax.swing.*;
@@ -15,16 +17,15 @@ import java.util.*;
 /**
  * Panel de registro de Compras (abastecimiento de inventario).
  * Permite seleccionar productos, agregar al carrito de compra y procesar la compra.
- * Actualiza el inventario automaticamente incrementando el stock.
+ * Consume CompraController con transaccion atomica ACID.
  * Acceso restringido: solo Administrador.
  */
 public class CompraPanel extends JPanel {
 
     private final UsuarioController usuarioCtrl;
-    private final ProductoDAO productoDAO = new ProductoDAO();
-    private final ProveedorDAO proveedorDAO = new ProveedorDAO();
-    private final CompraDAO compraDAO = new CompraDAO();
-    private final DetalleCompraDAO detalleCompraDAO = new DetalleCompraDAO();
+    private final ProductoController productoCtrl = new ProductoController();
+    private final ProveedorController proveedorCtrl = new ProveedorController();
+    private final CompraController compraCtrl = new CompraController();
 
     private JComboBox<ProveedorItem> cmbProveedor;
     private JComboBox<ProductoItem> cmbProducto;
@@ -80,7 +81,7 @@ public class CompraPanel extends JPanel {
         panelIzq.add(Box.createVerticalStrut(3));
 
         cmbProveedor = new JComboBox<>();
-        for (Proveedor p : proveedorDAO.listarTodos()) {
+        for (Proveedor p : proveedorCtrl.listarTodos()) {
             cmbProveedor.addItem(new ProveedorItem(p));
         }
         ProductoPanel.estilizarCombo(cmbProveedor);
@@ -212,7 +213,7 @@ public class CompraPanel extends JPanel {
         };
         JTable tablaHist = new JTable(modeloHist);
         ProductoPanel.estilizarTabla(tablaHist);
-        for (Compra c : compraDAO.listarTodos()) {
+        for (Compra c : compraCtrl.listarTodas()) {
             if (modeloHist.getRowCount() >= 15) break;
             modeloHist.addRow(new Object[]{
                 c.getIdCompra(),
@@ -232,7 +233,7 @@ public class CompraPanel extends JPanel {
         ProveedorItem prov = (ProveedorItem) cmbProveedor.getSelectedItem();
         if (prov == null) return;
         
-        java.util.List<Producto> productos = productoDAO.buscarPorProveedor(prov.proveedor.getIdProveedor());
+        java.util.List<Producto> productos = productoCtrl.buscarPorProveedor(prov.proveedor.getIdProveedor());
         for (Producto p : productos) {
             cmbProducto.addItem(new ProductoItem(p));
         }
@@ -309,33 +310,19 @@ public class CompraPanel extends JPanel {
             provItem.proveedor.getIdProveedor(),
             usuarioCtrl.getUsuarioLogueado().getIdUsuario());
 
-        if (compraDAO.insertar(compra)) {
-            boolean todoOk = true;
-            for (Object[] item : carrito) {
-                Producto prod = (Producto) item[0];
-                int cantidad = (int) item[1];
-                double precioUnit = (double) item[2];
+        List<DetalleCompra> detalles = new ArrayList<>();
+        for (Object[] item : carrito) {
+            Producto prod = (Producto) item[0];
+            int cantidad = (int) item[1];
+            double precioUnit = (double) item[2];
+            detalles.add(new DetalleCompra(0, 0, prod.getIdProducto(), cantidad, precioUnit));
+        }
 
-                DetalleCompra detalle = new DetalleCompra(0, compra.getIdCompra(),
-                    prod.getIdProducto(), cantidad, precioUnit);
-                detalleCompraDAO.insertar(detalle);
-
-                // Actualizar inventario: INCREMENTAR stock
-                if (!productoDAO.actualizarStockCompra(prod.getIdProducto(), cantidad)) {
-                    todoOk = false;
-                }
-            }
-
-            if (todoOk) {
-                JOptionPane.showMessageDialog(this,
-                    "Compra #" + compra.getIdCompra() + " procesada exitosamente.\nTotal: $"
-                    + String.format("%,.2f", total) + "\nStock actualizado.",
-                    "Compra Exitosa", JOptionPane.INFORMATION_MESSAGE);
-            } else {
-                JOptionPane.showMessageDialog(this,
-                    "Compra registrada pero hubo problemas al actualizar el stock.",
-                    "Advertencia", JOptionPane.WARNING_MESSAGE);
-            }
+        if (compraCtrl.procesarCompra(compra, detalles)) {
+            JOptionPane.showMessageDialog(this,
+                "Compra #" + compra.getIdCompra() + " procesada exitosamente.\nTotal: $"
+                + String.format("%,.2f", total) + "\nStock actualizado.",
+                "Compra Exitosa", JOptionPane.INFORMATION_MESSAGE);
 
             // Limpiar carrito
             carrito.clear();

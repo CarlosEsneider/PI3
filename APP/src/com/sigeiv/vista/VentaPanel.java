@@ -3,7 +3,9 @@ package com.sigeiv.vista;
 import java.util.List;
 
 import com.sigeiv.controlador.UsuarioController;
-import com.sigeiv.dao.*;
+import com.sigeiv.controlador.ProductoController;
+import com.sigeiv.controlador.ClienteController;
+import com.sigeiv.controlador.VentaController;
 import com.sigeiv.modelo.*;
 
 import javax.swing.*;
@@ -15,15 +17,14 @@ import java.util.*;
 /**
  * Panel de registro de Ventas.
  * Permite seleccionar productos, agregar al carrito y procesar la venta.
- * Actualiza el inventario automaticamente.
+ * Consume VentaController con procesamiento transaccional atomico ACID.
  */
 public class VentaPanel extends JPanel {
 
     private final UsuarioController usuarioCtrl;
-    private final ProductoDAO productoDAO = new ProductoDAO();
-    private final ClienteDAO clienteDAO = new ClienteDAO();
-    private final VentaDAO ventaDAO = new VentaDAO();
-    private final DetalleVentaDAO detalleDAO = new DetalleVentaDAO();
+    private final ProductoController productoCtrl = new ProductoController();
+    private final ClienteController clienteCtrl = new ClienteController();
+    private final VentaController ventaCtrl = new VentaController();
 
     private JComboBox<ClienteItem> cmbCliente;
     private JComboBox<ProductoItem> cmbProducto;
@@ -79,7 +80,7 @@ public class VentaPanel extends JPanel {
         panelIzq.add(Box.createVerticalStrut(3));
 
         cmbCliente = new JComboBox<>();
-        for (Cliente c : clienteDAO.listarTodos()) {
+        for (Cliente c : clienteCtrl.listarTodos()) {
             cmbCliente.addItem(new ClienteItem(c));
         }
         ProductoPanel.estilizarCombo(cmbCliente);
@@ -186,7 +187,7 @@ public class VentaPanel extends JPanel {
         };
         JTable tablaHist = new JTable(modeloHist);
         ProductoPanel.estilizarTabla(tablaHist);
-        for (Venta v : ventaDAO.listarTodos()) {
+        for (Venta v : ventaCtrl.listarTodas()) {
             if (modeloHist.getRowCount() >= 15) break;
             modeloHist.addRow(new Object[]{
                 v.getIdVenta(),
@@ -203,7 +204,7 @@ public class VentaPanel extends JPanel {
 
     private void cargarProductos() {
         cmbProducto.removeAllItems();
-        for (Producto p : productoDAO.listarTodos()) {
+        for (Producto p : productoCtrl.listarTodos()) {
             if (p.getStockActual() > 0) {
                 cmbProducto.addItem(new ProductoItem(p));
             }
@@ -268,31 +269,18 @@ public class VentaPanel extends JPanel {
         Venta venta = new Venta(0, new Date(), clienteItem.cliente.getIdCliente(),
             usuarioCtrl.getUsuarioLogueado().getIdUsuario(), total);
 
-        if (ventaDAO.insertar(venta)) {
-            boolean todoOk = true;
-            for (Object[] item : carrito) {
-                Producto prod = (Producto) item[0];
-                int cantidad = (int) item[1];
-                double subtotal = (double) item[2];
+        List<DetalleVenta> detalles = new ArrayList<>();
+        for (Object[] item : carrito) {
+            Producto prod = (Producto) item[0];
+            int cantidad = (int) item[1];
+            double subtotal = (double) item[2];
+            detalles.add(new DetalleVenta(0, 0, prod.getIdProducto(), cantidad, prod.getPrecio(), subtotal));
+        }
 
-                DetalleVenta detalle = new DetalleVenta(0, venta.getIdVenta(),
-                    prod.getIdProducto(), cantidad, prod.getPrecio(), subtotal);
-                detalleDAO.insertar(detalle);
-
-                // Actualizar inventario
-                if (!productoDAO.actualizarStock(prod.getIdProducto(), cantidad)) {
-                    todoOk = false;
-                }
-            }
-
-            if (todoOk) {
-                JOptionPane.showMessageDialog(this,
-                    "Venta #" + venta.getIdVenta() + " procesada exitosamente.\nTotal: $" + String.format("%,.2f", total),
-                    "Venta Exitosa", JOptionPane.INFORMATION_MESSAGE);
-            } else {
-                JOptionPane.showMessageDialog(this, "Venta registrada pero hubo problemas al actualizar el stock.",
-                    "Advertencia", JOptionPane.WARNING_MESSAGE);
-            }
+        if (ventaCtrl.procesarVenta(venta, detalles)) {
+            JOptionPane.showMessageDialog(this,
+                "Venta #" + venta.getIdVenta() + " procesada exitosamente.\nTotal: $" + String.format("%,.2f", total),
+                "Venta Exitosa", JOptionPane.INFORMATION_MESSAGE);
 
             // Limpiar carrito
             carrito.clear();
@@ -300,7 +288,8 @@ public class VentaPanel extends JPanel {
             actualizarTotal();
             cargarProductos();
         } else {
-            JOptionPane.showMessageDialog(this, "Error al registrar la venta.", "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Error al registrar la venta. Verifique existencias de stock.",
+                "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 

@@ -1,7 +1,7 @@
 package com.sigeiv.vista;
 
+import com.sigeiv.controlador.ProveedorController;
 import com.sigeiv.controlador.UsuarioController;
-import com.sigeiv.dao.ProveedorDAO;
 import com.sigeiv.modelo.Proveedor;
 
 import javax.swing.*;
@@ -13,11 +13,12 @@ import java.util.List;
 
 /**
  * Panel de gestion de Proveedores con CRUD completo.
+ * Consume ProveedorController bajo arquitectura estricta MVC.
  */
 public class ProveedorPanel extends JPanel {
 
     private final UsuarioController usuarioCtrl;
-    private final ProveedorDAO proveedorDAO = new ProveedorDAO();
+    private final ProveedorController proveedorCtrl = new ProveedorController();
 
     private JTable tabla;
     private DefaultTableModel modeloTabla;
@@ -101,28 +102,26 @@ public class ProveedorPanel extends JPanel {
         if (usuarioCtrl.esConsultor()) {
             btnNuevo.setEnabled(false); btnGuardar.setEnabled(false); btnEliminar.setEnabled(false);
         }
-        if (usuarioCtrl.esVendedor()) {
-            btnNuevo.setEnabled(false); btnGuardar.setEnabled(false); btnEliminar.setEnabled(false);
-        }
 
         btnNuevo.addActionListener(e -> limpiar());
         btnLimpiar.addActionListener(e -> limpiar());
         btnGuardar.addActionListener(e -> guardar());
         btnEliminar.addActionListener(e -> eliminar());
+
         add(panelForm, BorderLayout.EAST);
     }
 
     private void cargarTabla() {
         modeloTabla.setRowCount(0);
-        for (Proveedor p : proveedorDAO.listarTodos()) {
+        for (Proveedor p : proveedorCtrl.listarTodos()) {
             modeloTabla.addRow(new Object[]{ p.getIdProveedor(), p.getEmpresa(), p.getContacto(), p.getTelefono() });
         }
     }
 
     private void filtrar() {
-        String b = txtBuscar.getText().trim();
+        String busqueda = txtBuscar.getText().trim();
         modeloTabla.setRowCount(0);
-        List<Proveedor> lista = b.isEmpty() ? proveedorDAO.listarTodos() : proveedorDAO.buscarPorNombre(b);
+        List<Proveedor> lista = busqueda.isEmpty() ? proveedorCtrl.listarTodos() : proveedorCtrl.buscarPorEmpresa(busqueda);
         for (Proveedor p : lista) {
             modeloTabla.addRow(new Object[]{ p.getIdProveedor(), p.getEmpresa(), p.getContacto(), p.getTelefono() });
         }
@@ -132,50 +131,59 @@ public class ProveedorPanel extends JPanel {
         int fila = tabla.getSelectedRow();
         if (fila < 0) return;
         idSeleccionado = (int) modeloTabla.getValueAt(fila, 0);
-        Proveedor p = proveedorDAO.buscarPorId(idSeleccionado);
+        Proveedor p = proveedorCtrl.buscarPorId(idSeleccionado);
         if (p != null) {
-            txtEmpresa.setText(p.getEmpresa()); txtContacto.setText(p.getContacto());
+            txtEmpresa.setText(p.getEmpresa());
+            txtContacto.setText(p.getContacto());
             txtTelefono.setText(p.getTelefono());
         }
     }
 
     private void guardar() {
         String empresa = txtEmpresa.getText().trim();
-        if (empresa.isEmpty()) { JOptionPane.showMessageDialog(this, "La empresa es obligatoria."); return; }
+        if (empresa.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "El nombre de la empresa es obligatorio.", "Validacion", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
         Proveedor p = new Proveedor(idSeleccionado > 0 ? idSeleccionado : 0, empresa,
             txtContacto.getText().trim(), txtTelefono.getText().trim());
-        boolean ok = idSeleccionado > 0 ? proveedorDAO.actualizar(p) : proveedorDAO.insertar(p);
-        if (ok) { JOptionPane.showMessageDialog(this, "Proveedor guardado."); limpiar(); cargarTabla(); }
-        else JOptionPane.showMessageDialog(this, "Error al guardar.", "Error", JOptionPane.ERROR_MESSAGE);
+        boolean ok = idSeleccionado > 0 ? proveedorCtrl.actualizar(p) : proveedorCtrl.guardar(p);
+        if (ok) {
+            JOptionPane.showMessageDialog(this, "Proveedor guardado exitosamente.", "Exito", JOptionPane.INFORMATION_MESSAGE);
+            limpiar(); cargarTabla();
+        } else {
+            JOptionPane.showMessageDialog(this, "Error al guardar proveedor.", "Error", JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     private void eliminar() {
         if (idSeleccionado <= 0) { JOptionPane.showMessageDialog(this, "Selecciona un proveedor."); return; }
         if (JOptionPane.showConfirmDialog(this, "Eliminar este proveedor?", "Confirmar", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
-            if (proveedorDAO.eliminar(idSeleccionado)) { limpiar(); cargarTabla(); }
-            else JOptionPane.showMessageDialog(this, "No se pudo eliminar. Puede tener productos asociados.", "Error", JOptionPane.ERROR_MESSAGE);
+            if (proveedorCtrl.eliminar(idSeleccionado)) { limpiar(); cargarTabla(); }
+            else JOptionPane.showMessageDialog(this, "No se pudo eliminar. Puede tener productos o compras asociadas.", "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
     private void limpiar() {
-        idSeleccionado = -1; txtEmpresa.setText(""); txtContacto.setText(""); txtTelefono.setText("");
+        idSeleccionado = -1;
+        txtEmpresa.setText(""); txtContacto.setText(""); txtTelefono.setText("");
         tabla.clearSelection();
     }
 
     private JPanel crearCampo(String label, JTextField campo) {
-        JPanel p = new JPanel(); p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
-        p.setOpaque(false); p.setAlignmentX(LEFT_ALIGNMENT); p.setMaximumSize(new Dimension(260, 58));
-        JLabel l = new JLabel(label); l.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        l.setForeground(MainFrame.COLOR_TEXTO_SEC); l.setAlignmentX(LEFT_ALIGNMENT);
+        JPanel p = new JPanel();
+        p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
+        p.setOpaque(false); p.setAlignmentX(Component.LEFT_ALIGNMENT);
+        p.setMaximumSize(new Dimension(260, 58));
+        JLabel l = new JLabel(label);
+        l.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        l.setForeground(MainFrame.COLOR_TEXTO_SEC);
+        l.setAlignmentX(Component.LEFT_ALIGNMENT);
         p.add(l); p.add(Box.createVerticalStrut(3));
-        ProductoPanel.estilizarCampo(campo); campo.setAlignmentX(LEFT_ALIGNMENT);
-        campo.setMaximumSize(new Dimension(260, 30)); p.add(campo); p.add(Box.createVerticalStrut(6));
+        ProductoPanel.estilizarCampo(campo);
+        campo.setAlignmentX(Component.LEFT_ALIGNMENT);
+        campo.setMaximumSize(new Dimension(260, 30));
+        p.add(campo); p.add(Box.createVerticalStrut(6));
         return p;
     }
 }
-
-
-
-
-
-

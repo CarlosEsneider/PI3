@@ -1,7 +1,8 @@
 package com.sigeiv.vista;
 
 import com.sigeiv.controlador.UsuarioController;
-import com.sigeiv.dao.*;
+import com.sigeiv.controlador.ReporteController;
+import com.sigeiv.controlador.ClienteController;
 import com.sigeiv.modelo.*;
 
 import javax.swing.*;
@@ -15,14 +16,13 @@ import java.util.List;
 /**
  * Panel de Reportes del sistema SIGEIV-Volcano.
  * Genera reportes de ventas por periodos y muestra productos mas vendidos.
+ * Consume ReporteController bajo el patron MVC.
  */
 public class ReportePanel extends JPanel {
 
     private final UsuarioController usuarioCtrl;
-    private final VentaDAO ventaDAO = new VentaDAO();
-    private final DetalleVentaDAO detalleDAO = new DetalleVentaDAO();
-    private final ClienteDAO clienteDAO = new ClienteDAO();
-    private final ProductoDAO productoDAO = new ProductoDAO();
+    private final ReporteController reporteCtrl = new ReporteController();
+    private final ClienteController clienteCtrl = new ClienteController();
 
     private JTable tablaVentas, tablaTopProductos;
     private DefaultTableModel modeloVentas, modeloTop;
@@ -143,12 +143,12 @@ public class ReportePanel extends JPanel {
         Date inicio = rango[0], fin = rango[1];
 
         // Ventas
-        List<Venta> ventas = ventaDAO.buscarPorFechas(inicio, fin);
+        List<Venta> ventas = reporteCtrl.obtenerVentasPorRango(inicio, fin);
         modeloVentas.setRowCount(0);
         SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm");
 
         // Cargar listas de lookup
-        List<Cliente> clientes = clienteDAO.listarTodos();
+        List<Cliente> clientes = clienteCtrl.listarTodos();
         List<Usuario> usuarios = new com.sigeiv.dao.UsuarioDAO().listarTodos();
 
         double totalIngresos = 0;
@@ -177,7 +177,7 @@ public class ReportePanel extends JPanel {
 
         // Top productos
         modeloTop.setRowCount(0);
-        List<Object[]> topProductos = detalleDAO.productosMasVendidos(10);
+        List<Object[]> topProductos = reporteCtrl.obtenerTopProductos(10);
         for (Object[] row : topProductos) {
             modeloTop.addRow(new Object[]{
                 row[0],

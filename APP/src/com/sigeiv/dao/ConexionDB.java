@@ -20,8 +20,15 @@ import java.sql.Statement;
  */
 public class ConexionDB {
 
-    // --- Parametros de conexion SQLite ---
-    private static final String URL = "jdbc:sqlite:sigeiv_volcano.db";
+    // --- Parametros de conexion SQLite dinamicamente resueltos ---
+    private static String resolverRutaDB() {
+        if (new File("sigeiv_volcano.db").exists()) {
+            return "jdbc:sqlite:sigeiv_volcano.db";
+        } else if (new File("APP/sigeiv_volcano.db").exists()) {
+            return "jdbc:sqlite:APP/sigeiv_volcano.db";
+        }
+        return "jdbc:sqlite:sigeiv_volcano.db";
+    }
 
     // --- Instancia Singleton ---
     private static ConexionDB instancia;
@@ -62,7 +69,7 @@ public class ConexionDB {
      */
     public Connection getConexion() throws SQLException {
         if (conexion == null || conexion.isClosed()) {
-            conexion = DriverManager.getConnection(URL);
+            conexion = DriverManager.getConnection(resolverRutaDB());
             try (Statement stmt = conexion.createStatement()) {
                 stmt.execute("PRAGMA foreign_keys = ON;");
             }
@@ -83,10 +90,14 @@ public class ConexionDB {
                 System.out.println("Inicializando base de datos SQLite por primera vez...");
                 rs.close();
                 
-                // Leer el archivo sql/sqlite_schema.sql
+                // Buscar sql/sqlite_schema.sql en ruta actual o subcarpeta APP
                 File file = new File("sql/sqlite_schema.sql");
+                if (!file.exists()) {
+                    file = new File("APP/sql/sqlite_schema.sql");
+                }
+                
                 if (file.exists()) {
-                    String script = new String(Files.readAllBytes(Paths.get("sql/sqlite_schema.sql")), StandardCharsets.UTF_8);
+                    String script = new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8);
                     // Separar por punto y coma y ejecutar cada sentencia
                     String[] sentencias = script.split(";");
                     for (String sentencia : sentencias) {
@@ -96,7 +107,7 @@ public class ConexionDB {
                     }
                     System.out.println("Base de datos inicializada correctamente.");
                 } else {
-                    System.err.println("Advertencia: No se encontro el archivo sql/sqlite_schema.sql");
+                    System.err.println("Advertencia: No se encontro el archivo sqlite_schema.sql");
                 }
             } else {
                 rs.close();

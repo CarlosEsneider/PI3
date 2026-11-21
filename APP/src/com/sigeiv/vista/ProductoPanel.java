@@ -1,9 +1,9 @@
 package com.sigeiv.vista;
 
 import com.sigeiv.controlador.UsuarioController;
-import com.sigeiv.dao.ProductoDAO;
-import com.sigeiv.dao.CategoriaDAO;
-import com.sigeiv.dao.ProveedorDAO;
+import com.sigeiv.controlador.ProductoController;
+import com.sigeiv.controlador.CategoriaController;
+import com.sigeiv.controlador.ProveedorController;
 import com.sigeiv.modelo.Producto;
 import com.sigeiv.modelo.Categoria;
 import com.sigeiv.modelo.Proveedor;
@@ -22,9 +22,9 @@ import java.util.List;
 public class ProductoPanel extends JPanel {
 
     private final UsuarioController usuarioCtrl;
-    private final ProductoDAO productoDAO = new ProductoDAO();
-    private final CategoriaDAO categoriaDAO = new CategoriaDAO();
-    private final ProveedorDAO proveedorDAO = new ProveedorDAO();
+    private final ProductoController productoCtrl = new ProductoController();
+    private final CategoriaController categoriaCtrl = new CategoriaController();
+    private final ProveedorController proveedorCtrl = new ProveedorController();
 
     private JTable tabla;
     private DefaultTableModel modeloTabla;
@@ -60,7 +60,7 @@ public class ProductoPanel extends JPanel {
 
         cmbFiltroCategoria = new JComboBox<>();
         cmbFiltroCategoria.addItem("Todas las categorias");
-        for (Categoria c : categoriaDAO.listarTodos()) {
+        for (Categoria c : categoriaCtrl.listarTodos()) {
             cmbFiltroCategoria.addItem(c.getNombreCategoria());
         }
         estilizarCombo(cmbFiltroCategoria);
@@ -130,12 +130,12 @@ public class ProductoPanel extends JPanel {
         panelForm.add(crearCampoFormulario("Stock Minimo:", txtStockMinimo));
 
         cmbCategoria = new JComboBox<>();
-        for (Categoria c : categoriaDAO.listarTodos()) cmbCategoria.addItem(c);
+        for (Categoria c : categoriaCtrl.listarTodos()) cmbCategoria.addItem(c);
         estilizarCombo(cmbCategoria);
         panelForm.add(crearCampoFormulario("Categoria:", cmbCategoria));
 
         cmbProveedor = new JComboBox<>();
-        for (Proveedor p : proveedorDAO.listarTodos()) cmbProveedor.addItem(p);
+        for (Proveedor p : proveedorCtrl.listarTodos()) cmbProveedor.addItem(p);
         estilizarCombo(cmbProveedor);
         panelForm.add(crearCampoFormulario("Proveedor:", cmbProveedor));
 
@@ -179,9 +179,9 @@ public class ProductoPanel extends JPanel {
 
     private void cargarTabla() {
         modeloTabla.setRowCount(0);
-        List<Producto> productos = productoDAO.listarTodos();
-        List<Categoria> categorias = categoriaDAO.listarTodos();
-        List<Proveedor> proveedores = proveedorDAO.listarTodos();
+        List<Producto> productos = productoCtrl.listarTodos();
+        List<Categoria> categorias = categoriaCtrl.listarTodos();
+        List<Proveedor> proveedores = proveedorCtrl.listarTodos();
 
         for (Producto p : productos) {
             String catNombre = categorias.stream()
@@ -209,18 +209,18 @@ public class ProductoPanel extends JPanel {
         List<Producto> productos;
 
         if (filtroIdx > 0) {
-            List<Categoria> cats = categoriaDAO.listarTodos();
+            List<Categoria> cats = categoriaCtrl.listarTodos();
             if (filtroIdx - 1 < cats.size()) {
-                productos = productoDAO.buscarPorCategoria(cats.get(filtroIdx - 1).getIdCategoria());
+                productos = productoCtrl.buscarPorCategoria(cats.get(filtroIdx - 1).getIdCategoria());
             } else {
-                productos = productoDAO.listarTodos();
+                productos = productoCtrl.listarTodos();
             }
         } else {
-            productos = busqueda.isEmpty() ? productoDAO.listarTodos() : productoDAO.buscarPorNombre(busqueda);
+            productos = busqueda.isEmpty() ? productoCtrl.listarTodos() : productoCtrl.buscarPorNombre(busqueda);
         }
 
-        List<Categoria> categorias = categoriaDAO.listarTodos();
-        List<Proveedor> proveedores = proveedorDAO.listarTodos();
+        List<Categoria> categorias = categoriaCtrl.listarTodos();
+        List<Proveedor> proveedores = proveedorCtrl.listarTodos();
 
         for (Producto p : productos) {
             if (!busqueda.isEmpty() && !p.getNombreProducto().toLowerCase().contains(busqueda)) continue;
@@ -245,7 +245,7 @@ public class ProductoPanel extends JPanel {
         int fila = tabla.getSelectedRow();
         if (fila < 0) return;
         idSeleccionado = (int) modeloTabla.getValueAt(fila, 0);
-        Producto p = productoDAO.buscarPorId(idSeleccionado);
+        Producto p = productoCtrl.buscarPorId(idSeleccionado);
         if (p == null) return;
 
         txtNombre.setText(p.getNombreProducto());
@@ -287,9 +287,9 @@ public class ProductoPanel extends JPanel {
 
             boolean exito;
             if (idSeleccionado > 0) {
-                exito = productoDAO.actualizar(p);
+                exito = productoCtrl.actualizar(p);
             } else {
-                exito = productoDAO.insertar(p);
+                exito = productoCtrl.guardar(p);
             }
 
             if (exito) {
@@ -317,7 +317,7 @@ public class ProductoPanel extends JPanel {
             "Estas seguro de eliminar este producto?", "Confirmar Eliminacion",
             JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
         if (opcion == JOptionPane.YES_OPTION) {
-            if (productoDAO.eliminar(idSeleccionado)) {
+            if (productoCtrl.eliminar(idSeleccionado)) {
                 JOptionPane.showMessageDialog(this, "Producto eliminado.",
                     "Exito", JOptionPane.INFORMATION_MESSAGE);
                 limpiarFormulario();
