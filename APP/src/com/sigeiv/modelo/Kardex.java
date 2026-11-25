@@ -19,6 +19,8 @@ public class Kardex {
     private int saldoStock;
     private double costoUnitario;
     private double costoTotalSaldo;
+    private String registradoPor;
+    private String autorizadoPor;
 
     public Kardex() {}
 
@@ -36,6 +38,28 @@ public class Kardex {
         this.saldoStock = saldoStock;
         this.costoUnitario = costoUnitario;
         this.costoTotalSaldo = costoTotalSaldo;
+    }
+
+    public Kardex(int idKardex, int idProducto, String nombreProducto, String codigoSku,
+                  String fechaHora, int idMovimiento, String tipoEvento, String numeroSoporte,
+                  int cantidadEntrada, int cantidadSalida, int saldoStock,
+                  double costoUnitario, double costoTotalSaldo,
+                  String registradoPor, String autorizadoPor) {
+        this.idKardex = idKardex;
+        this.idProducto = idProducto;
+        this.nombreProducto = nombreProducto;
+        this.codigoSku = codigoSku;
+        this.fechaHora = fechaHora;
+        this.idMovimiento = idMovimiento;
+        this.tipoEvento = tipoEvento;
+        this.numeroSoporte = numeroSoporte;
+        this.cantidadEntrada = cantidadEntrada;
+        this.cantidadSalida = cantidadSalida;
+        this.saldoStock = saldoStock;
+        this.costoUnitario = costoUnitario;
+        this.costoTotalSaldo = costoTotalSaldo;
+        this.registradoPor = registradoPor;
+        this.autorizadoPor = autorizadoPor;
     }
 
     public int getIdKardex() {
@@ -140,5 +164,21 @@ public class Kardex {
 
     public void setCostoTotalSaldo(double costoTotalSaldo) {
         this.costoTotalSaldo = costoTotalSaldo;
+    }
+
+    public String getRegistradoPor() {
+        return registradoPor;
+    }
+
+    public void setRegistradoPor(String registradoPor) {
+        this.registradoPor = registradoPor;
+    }
+
+    public String getAutorizadoPor() {
+        return autorizadoPor;
+    }
+
+    public void setAutorizadoPor(String autorizadoPor) {
+        this.autorizadoPor = autorizadoPor;
     }
 }
