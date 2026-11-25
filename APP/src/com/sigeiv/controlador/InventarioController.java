@@ -47,4 +47,72 @@ public class InventarioController {
         }
         return total;
     }
+
+    /**
+     * Determina el estado de semaforización tricolor oficial (Fase 5 - RF-11):
+     * - VERDE (ÓPTIMO): Stock > Stock Mínimo * 1.5
+     * - AMARILLO (PREVENTIVO): Stock Mínimo < Stock <= Stock Mínimo * 1.5
+     * - ROJO (CRÍTICO / AGOTADO): Stock <= Stock Mínimo o Stock = 0
+     */
+    public String determinarEstadoSemaforo(Producto p) {
+        if (p == null) return "DESCONOCIDO";
+        int stock = p.getStockActual();
+        int min = p.getStockMinimo();
+        if (stock <= min || stock <= 0) {
+            return "CRITICO";
+        } else if (stock <= min * 1.5) {
+            return "PREVENTIVO";
+        } else {
+            return "OPTIMO";
+        }
+    }
+
+    /**
+     * Cuenta el total de productos en estado Óptimo (Verde).
+     */
+    public int obtenerTotalOptimo() {
+        int count = 0;
+        for (Producto p : productoDAO.listarTodos()) {
+            if ("OPTIMO".equals(determinarEstadoSemaforo(p))) count++;
+        }
+        return count;
+    }
+
+    /**
+     * Cuenta el total de productos en estado Preventivo (Amarillo).
+     */
+    public int obtenerTotalPreventivo() {
+        int count = 0;
+        for (Producto p : productoDAO.listarTodos()) {
+            if ("PREVENTIVO".equals(determinarEstadoSemaforo(p))) count++;
+        }
+        return count;
+    }
+
+    /**
+     * Cuenta el total de productos en estado Crítico / Agotado (Rojo).
+     */
+    public int obtenerTotalCritico() {
+        int count = 0;
+        for (Producto p : productoDAO.listarTodos()) {
+            if ("CRITICO".equals(determinarEstadoSemaforo(p))) count++;
+        }
+        return count;
+    }
+
+    /**
+     * Filtra el inventario por estado del semáforo: "TODOS", "OPTIMO", "PREVENTIVO", "CRITICO".
+     */
+    public java.util.List<Producto> filtrarPorSemaforo(String estadoFiltro) {
+        if (estadoFiltro == null || "TODOS".equalsIgnoreCase(estadoFiltro)) {
+            return productoDAO.listarTodos();
+        }
+        java.util.List<Producto> filtrados = new java.util.ArrayList<>();
+        for (Producto p : productoDAO.listarTodos()) {
+            if (estadoFiltro.equalsIgnoreCase(determinarEstadoSemaforo(p))) {
+                filtrados.add(p);
+            }
+        }
+        return filtrados;
+    }
 }
